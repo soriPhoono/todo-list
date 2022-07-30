@@ -14,11 +14,61 @@ struct Settings {
     remove_on_select: bool,
 }
 
-fn get_int_input(prompt: &str) -> Result<usize, ParseIntError> {
+fn get_settings() -> Settings {
+    if !Path::new("./res").exists() {
+        create_dir("./res").expect("Failed to create resource directory on first run");
+    }
+
+    if !Path::new("./res/settings.json").exists() {
+        write(
+            "./res/settings.json",
+            format!(
+                "{:#}",
+                object! {
+                    file_path: "./res/input.list",
+                    random_selection: false,
+                    remove_on_select: true,
+                }
+            ),
+        )
+        .expect("Failed to write settings to settings.json file");
+    }
+
+    if !Path::new("./res/input.list").exists() {
+        write("./res/input.list", "").expect("Failed to create input list file");
+    }
+
+    let settings_json = json::parse(
+        read_to_string(Path::new("./res/settings.json"))
+            .expect("Failed to read input settings file")
+            .as_str(),
+    )
+    .expect("Failed to parse input file into proper json text");
+
+    Settings {
+        file_path: settings_json["file_path"]
+            .as_str()
+            .expect("Failed to parse file_path input parameters from json system")
+            .to_string(),
+        random_selection: settings_json["random_selection"]
+            .as_bool()
+            .expect("Failed to parse random_selection input parameters from json system"),
+        remove_on_select: settings_json["remove_on_select"]
+            .as_bool()
+            .expect("Failed to parse remove_on_select input parameters from json system"),
+    }
+}
+
+fn get_input(prompt: &str) -> String {
     let mut input = String::new();
-    print!("{} >>> ", prompt);
+    print!("{} >>>", prompt);
     stdout().flush().expect("Failed to flush output buffer");
     stdin().read_line(&mut input).expect("Failed to read input");
+    input
+}
+
+fn get_int_input(prompt: &str) -> Result<usize, ParseIntError> {
+    let input = get_input(prompt);
     input
         .strip_suffix("\r\n")
         .or(input.strip_suffix("\n"))
@@ -47,6 +97,13 @@ fn select_element(random: bool, remove: bool, input_list: &mut Vec<String>) -> S
     } else {
         "".to_string()
     };
+}
+
+fn add_element(file_path: &str, input_list: &mut Vec<String>) {
+    input_list.push(get_input(
+        "What item would you like to add to your todo-list",
+    ));
+    write(file_path, input_list.join("\n")).expect("Failed to write contents back to the file");
 }
 
 fn select_elements(file_path: &str, random: bool, remove: bool, input_list: &mut Vec<String>) {
@@ -92,51 +149,9 @@ fn select_elements(file_path: &str, random: bool, remove: bool, input_list: &mut
 
 fn main() {
     // create settings dir if not exists
-    if !Path::new("./res").exists() {
-        create_dir("./res").expect("Failed to create resource directory on first run");
-    }
-
-    if !Path::new("./res/settings.json").exists() {
-        write(
-            "./res/settings.json",
-            format!(
-                "{:#}",
-                object! {
-                    file_path: "./res/input.list",
-                    random_selection: false,
-                    remove_on_select: true,
-                }
-            ),
-        )
-        .expect("Failed to write settings to settings.json file");
-    }
-
-    if !Path::new("./res/input.list").exists() {
-        write("./res/input.list", "").expect("Failed to create input list file");
-    }
 
     // load in settings
-    let mut settings = {
-        let settings_json = json::parse(
-            read_to_string(Path::new("./res/settings.json"))
-                .expect("Failed to read input settings file")
-                .as_str(),
-        )
-        .expect("Failed to parse input file into proper json text");
-
-        Settings {
-            file_path: settings_json["file_path"]
-                .as_str()
-                .expect("Failed to parse file_path input parameters from json system")
-                .to_string(),
-            random_selection: settings_json["random_selection"]
-                .as_bool()
-                .expect("Failed to parse random_selection input parameters from json system"),
-            remove_on_select: settings_json["remove_on_select"]
-                .as_bool()
-                .expect("Failed to parse remove_on_select input parameters from json system"),
-        }
-    };
+    let mut settings = get_settings();
 
     let mut input_list = read_to_string(&settings.file_path)
         .expect("Failed to read input list file")
@@ -147,8 +162,9 @@ fn main() {
     loop {
         println!("Selection options are:");
         println!("1. Select items from input list");
-        println!("2. Reload settings");
-        println!("3. Quit");
+        println!("2. Add item to todo-list");
+        println!("3. Reload settings");
+        println!("4. Quit");
         println!();
 
         match match get_int_input("What option would you like to run") {
@@ -164,30 +180,9 @@ fn main() {
                 settings.remove_on_select,
                 &mut input_list,
             ),
-            2 => {
-                settings = {
-                    let settings_json = json::parse(
-                        read_to_string(Path::new("./res/settings.json"))
-                            .expect("Failed to read input settings file")
-                            .as_str(),
-                    )
-                    .expect("Failed to parse input file into proper json text");
-
-                    Settings {
-                        file_path: settings_json["file_path"]
-                            .as_str()
-                            .expect("Failed to parse file_path input parameters from json system")
-                            .to_string(),
-                        random_selection: settings_json["random_selection"].as_bool().expect(
-                            "Failed to parse random_selection input parameters from json system",
-                        ),
-                        remove_on_select: settings_json["remove_on_select"].as_bool().expect(
-                            "Failed to parse remove_on_select input parameters from json system",
-                        ),
-                    }
-                }
-            }
-            3 => break,
+            2 => add_element(&settings.file_path, &mut input_list),
+            3 => settings = get_settings(),
+            4 => break,
             _ => {}
         }
     }
