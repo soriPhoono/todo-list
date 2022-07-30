@@ -49,6 +49,47 @@ fn select_element(random: bool, remove: bool, input_list: &mut Vec<String>) -> S
     };
 }
 
+fn select_elements(file_path: &str, random: bool, remove: bool, input_list: &mut Vec<String>) {
+    let mut selection_list = vec![
+        select_element(random, remove, input_list),
+        select_element(random, remove, input_list),
+        select_element(random, remove, input_list),
+        select_element(random, remove, input_list),
+        select_element(random, remove, input_list),
+    ];
+
+    println!("Selected elements:");
+    for (i, selection) in selection_list.iter().enumerate() {
+        println!("{}. {}", i + 1, selection);
+    }
+    println!();
+
+    let mut selection_index: usize;
+    loop {
+        selection_index = match get_int_input("What would you like to do next") {
+            Ok(index) => index,
+            Err(e) => {
+                println!("{}", e);
+                continue;
+            }
+        } - 1;
+
+        if selection_index >= selection_list.len() {
+            println!("Selection index is too high");
+        } else {
+            break;
+        }
+    }
+
+    println!("Element selected: {}", selection_list[selection_index]);
+    if remove {
+        selection_list.remove(selection_index);
+    }
+
+    input_list.append(&mut selection_list);
+    write(file_path, input_list.join("\n")).expect("Failed to write contents back to the file");
+}
+
 fn main() {
     // create settings dir if not exists
     if !Path::new("./res").exists() {
@@ -75,7 +116,7 @@ fn main() {
     }
 
     // load in settings
-    let settings = {
+    let mut settings = {
         let settings_json = json::parse(
             read_to_string(Path::new("./res/settings.json"))
                 .expect("Failed to read input settings file")
@@ -103,63 +144,51 @@ fn main() {
         .map(|input_line| String::from(input_line))
         .collect::<Vec<_>>();
 
-    let mut selection_list = vec![
-        select_element(
-            settings.random_selection,
-            settings.remove_on_select,
-            &mut input_list,
-        ),
-        select_element(
-            settings.random_selection,
-            settings.remove_on_select,
-            &mut input_list,
-        ),
-        select_element(
-            settings.random_selection,
-            settings.remove_on_select,
-            &mut input_list,
-        ),
-        select_element(
-            settings.random_selection,
-            settings.remove_on_select,
-            &mut input_list,
-        ),
-        select_element(
-            settings.random_selection,
-            settings.remove_on_select,
-            &mut input_list,
-        ),
-    ];
-
-    println!("Selected elements:");
-    for (i, selection) in selection_list.iter().enumerate() {
-        println!("{}. {}", i + 1, selection);
-    }
-    println!();
-
-    let mut selection_index: usize;
     loop {
-        selection_index = match get_int_input("What would you like to do next") {
-            Ok(index) => index,
+        println!("Selection options are:");
+        println!("1. Select items from input list");
+        println!("2. Reload settings");
+        println!("3. Quit");
+        println!();
+
+        match match get_int_input("What option would you like to run") {
+            Ok(input) => input,
             Err(e) => {
                 println!("{}", e);
                 continue;
             }
-        } - 1;
+        } {
+            1 => select_elements(
+                &settings.file_path,
+                settings.random_selection,
+                settings.remove_on_select,
+                &mut input_list,
+            ),
+            2 => {
+                settings = {
+                    let settings_json = json::parse(
+                        read_to_string(Path::new("./res/settings.json"))
+                            .expect("Failed to read input settings file")
+                            .as_str(),
+                    )
+                    .expect("Failed to parse input file into proper json text");
 
-        if selection_index >= selection_list.len() {
-            println!("Selection index is too high");
-        } else {
-            break;
+                    Settings {
+                        file_path: settings_json["file_path"]
+                            .as_str()
+                            .expect("Failed to parse file_path input parameters from json system")
+                            .to_string(),
+                        random_selection: settings_json["random_selection"].as_bool().expect(
+                            "Failed to parse random_selection input parameters from json system",
+                        ),
+                        remove_on_select: settings_json["remove_on_select"].as_bool().expect(
+                            "Failed to parse remove_on_select input parameters from json system",
+                        ),
+                    }
+                }
+            }
+            3 => break,
+            _ => {}
         }
     }
-
-    println!("Element selected: {}", selection_list[selection_index]);
-    if settings.remove_on_select {
-        selection_list.remove(selection_index);
-    }
-
-    input_list.append(&mut selection_list);
-    write(settings.file_path, input_list.join("\n"))
-        .expect("Failed to write contents back to the file");
 }
