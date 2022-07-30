@@ -1,1 +1,5 @@
+/.vscode
 /target
+/res
+
+Cargo.lock
