@@ -9,7 +9,8 @@
 
 ## File structure and purpose
     The program works through pre specified settings in a file on the path ./res/settings.json.
-    Which will be created for you on first starting the program along with the ./res/ directory and ./res/input.list where your new todo list will live on the disk
+    Which will be created for you on first starting the program along with the ./res/ directory
+    and ./res/input.list where your new todo list will live on the disk
 
     default values given below
 
