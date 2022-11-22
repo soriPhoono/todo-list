@@ -28,7 +28,3 @@
 # Building
 
     Simply run cargo build to build the project
-
-# Running
-
-    run cargo run on the project directory
